@@ -15,6 +15,7 @@ import json
 import time
 import random
 import requests
+import urllib.parse
 from datetime import datetime, timezone, timedelta
 from playwright.sync_api import sync_playwright
 
@@ -219,7 +220,7 @@ def scrape_liepin_api(keyword):
             "Content-Type": "application/json",
             "Accept": "application/json, text/plain, */*",
             "Origin": "https://www.liepin.com",
-            "Referer": f"https://www.liepin.com/zhaopin/?key={keyword}&dqs={LIEPIN_CITY}",
+            "Referer": f"https://www.liepin.com/zhaopin/?key={urllib.parse.quote(keyword)}&dqs={LIEPIN_CITY}",
             "X-Requested-With": "XMLHttpRequest",
         }
         payload = {
