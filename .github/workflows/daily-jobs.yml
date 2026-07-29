@@ -1,0 +1,43 @@
+name: 成都招聘日报
+
+on:
+  schedule:
+    # 每天 21:30 北京时间（UTC+8，即 UTC 13:30）
+    - cron: '30 13 * * *'
+  # 允许手动触发（用于测试）
+  workflow_dispatch:
+
+jobs:
+  collect-jobs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装 Python 依赖
+        run: pip install -r requirements.txt
+
+      - name: 安装 Playwright 浏览器
+        run: python -m playwright install chromium --with-deps
+
+      - name: 执行招聘信息收集
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+        run: python main.py
+
+      - name: 提交并推送报告
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/
+          git diff --staged --quiet || git commit -m "招聘日报 $(TZ='Asia/Shanghai' date +%Y-%m-%d)"
+          git push
