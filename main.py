@@ -52,62 +52,27 @@ EXCLUDE_KEYWORDS = ["校招", "校园招聘", "应届", "实习", "兼职", "寒
 # 国企/央企/外资/合资公司 + 官网招聘页
 
 CHENGDU_COMPANIES = [
-    # === 央企/国企 ===
+    # === 央企/国企（精选与气象/环境/AI最相关的）===
     {"name": "中国电建集团成都勘测设计研究院", "type": "央企", "career_url": "https://www.powerchina-cdc.com/"},
     {"name": "中国核动力研究设计院", "type": "央企", "career_url": "https://www.npic.ac.cn/"},
     {"name": "东方电气集团", "type": "央企", "career_url": "https://www.dec.ltd/cn/careers"},
-    {"name": "中铁二院工程集团", "type": "央企", "career_url": "https://www.creegc.com/"},
-    {"name": "中铁八局集团", "type": "央企", "career_url": "https://www.cr8gc.com/"},
     {"name": "中国建筑西南设计研究院", "type": "央企", "career_url": "https://www.csweadi.com/"},
     {"name": "国家电网四川省电力公司", "type": "国企", "career_url": "https://www.sgcc.com.cn/"},
     {"name": "中国电信四川分公司", "type": "国企", "career_url": "https://www.chinatelecom.com.cn/careers/"},
     {"name": "中国移动四川分公司", "type": "国企", "career_url": "https://hr.10086.cn/"},
-    {"name": "中国联通四川分公司", "type": "国企", "career_url": "https://hr.chinaunicom.com/"},
-    {"name": "中国石化西南油气分公司", "type": "央企", "career_url": "https://www.sinopec.com/"},
-    {"name": "中国石油四川销售分公司", "type": "央企", "career_url": "https://www.cnpc.com.cn/"},
-    {"name": "中航工业成都飞机工业集团", "type": "央企", "career_url": "https://www.cac.com.cn/"},
-    {"name": "中国铁建二十三局集团", "type": "央企", "career_url": "https://www.cr23g.com.cn/"},
-    {"name": "中国五矿集团", "type": "央企", "career_url": "https://www.minmetals.com.cn/"},
-    {"name": "中国中铁股份有限公司", "type": "央企", "career_url": "https://www.crec.cn/"},
-    {"name": "中国电科网络空间安全研究院", "type": "央企", "career_url": "https://www.cetc.com.cn/"},
-    {"name": "中国航发四川燃气涡轮研究院", "type": "央企", "career_url": "https://www.acce.com.cn/"},
-    {"name": "四川长虹电器股份有限公司", "type": "国企", "career_url": "https://www.changhong.com.cn/"},
-    {"name": "华能四川水电有限公司", "type": "央企", "career_url": "https://www.chng.com.cn/"},
-    {"name": "中国大唐集团四川分公司", "type": "央企", "career_url": "https://www.china-cdt.com/"},
-    {"name": "中国华电集团四川分公司", "type": "央企", "career_url": "https://www.chec.com.cn/"},
     {"name": "中国节能环保集团", "type": "央企", "career_url": "https://www.cecic.com.cn/"},
-    {"name": "中国三峡集团四川分公司", "type": "央企", "career_url": "https://www.ctg.com.cn/"},
-    {"name": "成都轨道交通集团", "type": "国企", "career_url": "https://www.cdmetro.cn/"},
-    {"name": "成都兴城投资集团", "type": "国企", "career_url": "https://www.cdxctz.com/"},
-    {"name": "成都城建投资管理集团", "type": "国企", "career_url": "https://www.cdcih.com/"},
-    {"name": "四川航空集团", "type": "国企", "career_url": "https://www.sichuanair.com/"},
-    {"name": "成都交子金融控股集团", "type": "国企", "career_url": "https://www.cdjfkg.com/"},
-    {"name": "中国电子科技集团第十研究所", "type": "央企", "career_url": "https://www.cetc10.com/"},
-    {"name": "中国电子科技集团第二十九研究所", "type": "央企", "career_url": "https://www.cetc29.com/"},
-    {"name": "中国电子科技集团第三十研究所", "type": "央企", "career_url": "https://www.cestc.cn/"},
+    {"name": "中国电科网络空间安全研究院", "type": "央企", "career_url": "https://www.cetc.com.cn/"},
+    {"name": "四川长虹电器股份有限公司", "type": "国企", "career_url": "https://www.changhong.com.cn/"},
 
-    # === 外资 ===
+    # === 外资（精选有AI/大模型岗位的）===
     {"name": "英特尔产品(成都)", "type": "外资", "career_url": "https://www.intel.com/content/www/us/en/jobs/jobs-at-intel.html"},
-    {"name": "戴尔(成都)", "type": "外资", "career_url": "https://www.dell.com/learn/cn/zh/cncorp1/careers"},
     {"name": "IBM成都", "type": "外资", "career_url": "https://www.ibm.com/careers"},
     {"name": "西门子成都", "type": "外资", "career_url": "https://new.siemens.com/cn/zh/company/jobs.html"},
-    {"name": "沃尔沃成都", "type": "外资", "career_url": "https://www.volvocars.com/careers"},
-    {"name": "思科成都", "type": "外资", "career_url": "https://www.cisco.com/c/zh_cn/about/careers.html"},
-    {"name": "SAP成都", "type": "外资", "career_url": "https://www.sap.com/china/about/careers.html"},
-    {"name": "埃森哲成都", "type": "外资", "career_url": "https://www.accenture.com/cn-zh/careers"},
-    {"name": "马士基信息处理(成都)", "type": "外资", "career_url": "https://www.maersk.com/careers"},
-    {"name": "捷普科技(成都)", "type": "外资", "career_url": "https://www.jabil.com/careers"},
-    {"name": "德州仪器成都", "type": "外资", "career_url": "https://careers.ti.com/"},
-    {"name": "甲骨文成都", "type": "外资", "career_url": "https://www.oracle.com/corporate/careers/"},
     {"name": "微软成都", "type": "外资", "career_url": "https://careers.microsoft.com/"},
     {"name": "亚马逊成都", "type": "外资", "career_url": "https://www.amazon.jobs/"},
-    {"name": "甲骨文成都研发中心", "type": "外资", "career_url": "https://www.oracle.com/corporate/careers/"},
 
     # === 合资 ===
     {"name": "一汽-大众成都", "type": "合资", "career_url": "https://www.faw-vw.com/"},
-    {"name": "神龙汽车成都", "type": "合资", "career_url": "https://www.dcap.com.cn/"},
-    {"name": "中嘉汽车制造(成都)", "type": "合资", "career_url": "https://www.volvo.com/careers"},
-    {"name": "四川一汽丰田", "type": "合资", "career_url": "https://www.toyota.com.cn/"},
 ]
 
 
@@ -473,50 +438,29 @@ def scrape_yupao(playwright, keyword):
 
 # ============ 企业官网招聘页抓取 ============
 
-def scrape_company_career(playwright, company):
-    """抓取企业官网招聘页"""
+def scrape_company_career(context, company):
+    """抓取企业官网招聘页（复用浏览器上下文）"""
     name = company['name']
     ctype = company['type']
     career_url = company['career_url']
     print(f"  [企业官网] {name} ({ctype})")
 
     jobs = []
-    browser, context = create_browser_context(playwright)
     page = context.new_page()
     try:
-        page.goto(career_url, timeout=30000, wait_until="domcontentloaded")
-        time.sleep(random.uniform(2, 4))
-
-        # 尝试在页面中搜索关键词
-        for kw in SEARCH_KEYWORDS_LITE:
-            # 尝试使用页面搜索功能
-            try:
-                search_input = page.query_selector('input[type="text"], input[type="search"], input[placeholder*="搜索"], input[placeholder*="search"]')
-                if search_input:
-                    search_input.fill(kw)
-                    time.sleep(1)
-                    page.keyboard.press("Enter")
-                    time.sleep(random.uniform(2, 3))
-            except:
-                pass
+        page.goto(career_url, timeout=20000, wait_until="domcontentloaded")
+        time.sleep(random.uniform(1, 2))
 
         # 提取页面中的招聘信息
         raw_jobs = page.evaluate("""(companyName) => {
             const jobs = [];
-            // 通用招聘卡片选择器
-            const sels = [
-                '.job-item', '.position-item', '.job-card', '[class*="job-list"] li',
-                '.recruit-list li', '.job_content', '.job-line', '.jobrow',
-                '[class*="position"]', '[class*="recruit"]', 'tr[class*="job"]',
-                '.list-item', '.job-list-item', '[data-job-id]'
-            ];
+            const sels = ['.job-item', '.position-item', '.job-card', '[class*="job-list"] li',
+                '.recruit-list li', '.job_content', '[class*="position"]', '[class*="recruit"]',
+                '.list-item', '.job-list-item', '[data-job-id]'];
             let cards = [];
             for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
-
             if (cards.length === 0) {
-                // 降级：查找包含职位关键词的链接
-                const links = document.querySelectorAll('a');
-                links.forEach(a => {
+                document.querySelectorAll('a').forEach(a => {
                     const text = a.textContent.trim();
                     const href = a.href;
                     if (href && text.length > 2 && text.length < 80 &&
@@ -529,7 +473,6 @@ def scrape_company_career(playwright, company):
                 });
                 return jobs;
             }
-
             cards.forEach(c => {
                 const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
                 const le = c.querySelector('a');
@@ -537,24 +480,21 @@ def scrape_company_career(playwright, company):
                 if (title)
                     jobs.push({title:title, company:companyName, salary:g('.salary, [class*="salary"]'),
                         location:g('.area, [class*="city"]')||'成都',
-                        tags:c.textContent.trim().substring(0,500), link:le?le.href:careerUrl,
+                        tags:c.textContent.trim().substring(0,500), link:le?le.href:'',
                         source:'企业官网'});
             });
             return jobs;
         }""", name)
 
-        # 标注公司类型
         for job in (raw_jobs or []):
             job['company_type'] = ctype
             if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
                 jobs.append(job)
-
         print(f"    提取到 {len(jobs)} 个职位")
-
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
-        browser.close()
+        page.close()
     return jobs
 
 
@@ -587,13 +527,15 @@ def scrape_all_jobs():
 
             time.sleep(random.uniform(1, 2))
 
-        # === 企业官网 ===
+        # === 企业官网（复用同一浏览器上下文）===
         print(f"\n--- 企业官网招聘页抓取 ({len(CHENGDU_COMPANIES)}家企业) ---")
+        browser2, context2 = create_browser_context(p)
         for i, company in enumerate(CHENGDU_COMPANIES, 1):
-            if i % 10 == 0:
+            if i % 5 == 0:
                 print(f"  进度: {i}/{len(CHENGDU_COMPANIES)}")
-            add_jobs(scrape_company_career(p, company))
-            time.sleep(random.uniform(0.5, 1.5))
+            add_jobs(scrape_company_career(context2, company))
+            time.sleep(random.uniform(0.3, 0.8))
+        browser2.close()
 
     print(f"\n去重后总计: {len(all_jobs)} 个职位")
     return all_jobs
