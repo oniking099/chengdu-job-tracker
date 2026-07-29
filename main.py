@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-成都气象环境AI招聘信息日报 v2
+成都气象环境AI招聘信息日报 v3
 改进点：
-1. 51job: 从 window.__SEARCH_RESULT__ 提取 JSON 数据（非DOM选择器）
-2. 猎聘: 直接调用 API 接口获取结构化数据
-3. 反检测: stealth 模式，禁用自动化标志
-4. HTML报告: 公司名可点击跳转、标注来源
-5. 微信通知: 包含来源和链接
+1. 全职+社招过滤（排除兼职/校招/实习）
+2. 多平台抓取：51job/猎聘/Boss直聘/58同城/鱼泡网
+3. 成都企业库：国企/央企/外资/合资公司官网招聘页抓取
+4. 51job: 从 window.__SEARCH_RESULT__ 提取 JSON
+5. 猎聘: API + 浏览器降级
+6. 反检测: stealth 模式
+7. HTML报告: 公司名可点击跳转、标注来源
 """
 
 import os
@@ -25,21 +27,88 @@ SERVERCHAN_KEY = os.environ.get('SERVERCHAN_KEY', '')
 REPORT_DIR = os.environ.get('REPORT_DIR', 'reports')
 ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 
-# 搜索关键词 - 扩大范围
+# 搜索关键词
 SEARCH_KEYWORDS = [
     "气象", "大气科学", "环境科学", "环境工程",
     "大模型", "LLM", "AI agent", "人工智能算法",
     "气候", "生态环境", "气象算法"
 ]
 
+# Boss/58 使用精简关键词（避免被反爬）
+SEARCH_KEYWORDS_LITE = ["气象", "环境科学", "大模型", "AI", "气候"]
+
 # 51job 城市代码：090200 = 成都
 JOB51_CITY = "090200"
-
 # 猎聘城市代码：280 = 成都
 LIEPIN_CITY = "280"
 
-# 通用 User-Agent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# 排除关键词（兼职/校招/实习）
+EXCLUDE_KEYWORDS = ["校招", "校园招聘", "应届", "实习", "兼职", "寒暑假", "暑期", "寒假", "暑假"]
+
+
+# ============ 成都企业库 ============
+# 国企/央企/外资/合资公司 + 官网招聘页
+
+CHENGDU_COMPANIES = [
+    # === 央企/国企 ===
+    {"name": "中国电建集团成都勘测设计研究院", "type": "央企", "career_url": "https://www.powerchina-cdc.com/"},
+    {"name": "中国核动力研究设计院", "type": "央企", "career_url": "https://www.npic.ac.cn/"},
+    {"name": "东方电气集团", "type": "央企", "career_url": "https://www.dec.ltd/cn/careers"},
+    {"name": "中铁二院工程集团", "type": "央企", "career_url": "https://www.creegc.com/"},
+    {"name": "中铁八局集团", "type": "央企", "career_url": "https://www.cr8gc.com/"},
+    {"name": "中国建筑西南设计研究院", "type": "央企", "career_url": "https://www.csweadi.com/"},
+    {"name": "国家电网四川省电力公司", "type": "国企", "career_url": "https://www.sgcc.com.cn/"},
+    {"name": "中国电信四川分公司", "type": "国企", "career_url": "https://www.chinatelecom.com.cn/careers/"},
+    {"name": "中国移动四川分公司", "type": "国企", "career_url": "https://hr.10086.cn/"},
+    {"name": "中国联通四川分公司", "type": "国企", "career_url": "https://hr.chinaunicom.com/"},
+    {"name": "中国石化西南油气分公司", "type": "央企", "career_url": "https://www.sinopec.com/"},
+    {"name": "中国石油四川销售分公司", "type": "央企", "career_url": "https://www.cnpc.com.cn/"},
+    {"name": "中航工业成都飞机工业集团", "type": "央企", "career_url": "https://www.cac.com.cn/"},
+    {"name": "中国铁建二十三局集团", "type": "央企", "career_url": "https://www.cr23g.com.cn/"},
+    {"name": "中国五矿集团", "type": "央企", "career_url": "https://www.minmetals.com.cn/"},
+    {"name": "中国中铁股份有限公司", "type": "央企", "career_url": "https://www.crec.cn/"},
+    {"name": "中国电科网络空间安全研究院", "type": "央企", "career_url": "https://www.cetc.com.cn/"},
+    {"name": "中国航发四川燃气涡轮研究院", "type": "央企", "career_url": "https://www.acce.com.cn/"},
+    {"name": "四川长虹电器股份有限公司", "type": "国企", "career_url": "https://www.changhong.com.cn/"},
+    {"name": "华能四川水电有限公司", "type": "央企", "career_url": "https://www.chng.com.cn/"},
+    {"name": "中国大唐集团四川分公司", "type": "央企", "career_url": "https://www.china-cdt.com/"},
+    {"name": "中国华电集团四川分公司", "type": "央企", "career_url": "https://www.chec.com.cn/"},
+    {"name": "中国节能环保集团", "type": "央企", "career_url": "https://www.cecic.com.cn/"},
+    {"name": "中国三峡集团四川分公司", "type": "央企", "career_url": "https://www.ctg.com.cn/"},
+    {"name": "成都轨道交通集团", "type": "国企", "career_url": "https://www.cdmetro.cn/"},
+    {"name": "成都兴城投资集团", "type": "国企", "career_url": "https://www.cdxctz.com/"},
+    {"name": "成都城建投资管理集团", "type": "国企", "career_url": "https://www.cdcih.com/"},
+    {"name": "四川航空集团", "type": "国企", "career_url": "https://www.sichuanair.com/"},
+    {"name": "成都交子金融控股集团", "type": "国企", "career_url": "https://www.cdjfkg.com/"},
+    {"name": "中国电子科技集团第十研究所", "type": "央企", "career_url": "https://www.cetc10.com/"},
+    {"name": "中国电子科技集团第二十九研究所", "type": "央企", "career_url": "https://www.cetc29.com/"},
+    {"name": "中国电子科技集团第三十研究所", "type": "央企", "career_url": "https://www.cestc.cn/"},
+
+    # === 外资 ===
+    {"name": "英特尔产品(成都)", "type": "外资", "career_url": "https://www.intel.com/content/www/us/en/jobs/jobs-at-intel.html"},
+    {"name": "戴尔(成都)", "type": "外资", "career_url": "https://www.dell.com/learn/cn/zh/cncorp1/careers"},
+    {"name": "IBM成都", "type": "外资", "career_url": "https://www.ibm.com/careers"},
+    {"name": "西门子成都", "type": "外资", "career_url": "https://new.siemens.com/cn/zh/company/jobs.html"},
+    {"name": "沃尔沃成都", "type": "外资", "career_url": "https://www.volvocars.com/careers"},
+    {"name": "思科成都", "type": "外资", "career_url": "https://www.cisco.com/c/zh_cn/about/careers.html"},
+    {"name": "SAP成都", "type": "外资", "career_url": "https://www.sap.com/china/about/careers.html"},
+    {"name": "埃森哲成都", "type": "外资", "career_url": "https://www.accenture.com/cn-zh/careers"},
+    {"name": "马士基信息处理(成都)", "type": "外资", "career_url": "https://www.maersk.com/careers"},
+    {"name": "捷普科技(成都)", "type": "外资", "career_url": "https://www.jabil.com/careers"},
+    {"name": "德州仪器成都", "type": "外资", "career_url": "https://careers.ti.com/"},
+    {"name": "甲骨文成都", "type": "外资", "career_url": "https://www.oracle.com/corporate/careers/"},
+    {"name": "微软成都", "type": "外资", "career_url": "https://careers.microsoft.com/"},
+    {"name": "亚马逊成都", "type": "外资", "career_url": "https://www.amazon.jobs/"},
+    {"name": "甲骨文成都研发中心", "type": "外资", "career_url": "https://www.oracle.com/corporate/careers/"},
+
+    # === 合资 ===
+    {"name": "一汽-大众成都", "type": "合资", "career_url": "https://www.faw-vw.com/"},
+    {"name": "神龙汽车成都", "type": "合资", "career_url": "https://www.dcap.com.cn/"},
+    {"name": "中嘉汽车制造(成都)", "type": "合资", "career_url": "https://www.volvo.com/careers"},
+    {"name": "四川一汽丰田", "type": "合资", "career_url": "https://www.toyota.com.cn/"},
+]
 
 
 # ============ 浏览器配置（反检测） ============
@@ -51,7 +120,6 @@ def create_browser_context(playwright):
         args=[
             '--disable-blink-features=AutomationControlled',
             '--disable-features=IsolateOrigins,site-per-process',
-            '--disable-web-security',
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
@@ -62,11 +130,8 @@ def create_browser_context(playwright):
         viewport={"width": 1920, "height": 1080},
         locale="zh-CN",
         timezone_id="Asia/Shanghai",
-        extra_http_headers={
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        }
+        extra_http_headers={"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"},
     )
-    # 注入 stealth 脚本（隐藏 webdriver 标志）
     context.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
         Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
@@ -76,394 +141,412 @@ def create_browser_context(playwright):
     return browser, context
 
 
-# ============ 51job 抓取（从 __SEARCH_RESULT__ 提取） ============
+def is_excluded_job(title, tags=""):
+    """检查是否为兼职/校招/实习等应排除的职位"""
+    text = (title + " " + tags).lower()
+    for kw in EXCLUDE_KEYWORDS:
+        if kw in text:
+            return True
+    return False
+
+
+# ============ 51job 抓取 ============
 
 def scrape_51job(playwright, keyword):
-    """抓取前程无忧 - 从 window.__SEARCH_RESULT__ 提取 JSON 数据"""
+    """前程无忧 - 从 window.__SEARCH_RESULT__ 或 DOM 提取"""
     print(f"  [51job] 搜索: {keyword}")
     jobs = []
     browser, context = create_browser_context(playwright)
     page = context.new_page()
-
     try:
-        url = f"https://we.51job.com/pc/search?keyword={keyword}&jobArea={JOB51_CITY}&sortType=0"
+        url = f"https://we.51job.com/pc/search?keyword={urllib.parse.quote(keyword)}&jobArea={JOB51_CITY}&sortType=0"
         page.goto(url, timeout=45000, wait_until="domcontentloaded")
-
-        # 等待页面 JS 执行完成
         time.sleep(random.uniform(3, 5))
-
-        # 滚动页面触发懒加载
         for _ in range(3):
             page.mouse.wheel(0, random.randint(300, 800))
             time.sleep(0.5)
 
-        # 方法1: 直接从 window.__SEARCH_RESULT__ 提取
         raw_jobs = page.evaluate("""() => {
             try {
                 if (window.__SEARCH_RESULT__) {
                     const result = window.__SEARCH_RESULT__;
                     const jobs = result.engine_search_result || result.joblist || [];
                     return jobs.map(j => ({
-                        title: j.job_name || '',
-                        company: j.company_name || '',
+                        title: j.job_name || '', company: j.company_name || '',
                         salary: j.providesalary_text || j.salary || '',
-                        location: j.workarea_text || j.attribute_text && j.attribute_text[0] || '成都',
+                        location: j.workarea_text || (j.attribute_text && j.attribute_text[0]) || '成都',
                         tags: (j.attribute_text || []).join(' | ') + ' | ' + (j.jobwelf || ''),
-                        link: j.job_href || '',
-                        source: '51job'
+                        link: j.job_href || '', source: '51job'
                     }));
                 }
             } catch(e) {}
             return null;
         }""")
 
-        if raw_jobs:
-            print(f"    [OK] __SEARCH_RESULT__ 提取到 {len(raw_jobs)} 个职位")
-        else:
-            # 方法2: 从 script 标签中正则提取 JSON
-            print(f"    [INFO] __SEARCH_RESULT__ 为空，尝试 DOM 提取...")
+        if not raw_jobs:
             raw_jobs = page.evaluate("""() => {
                 const jobs = [];
-                // 尝试多种选择器
-                const selectors = [
-                    '.j_joblist', '.el', '.joblist-item',
-                    '[class*="joblist"]', '[class*="job-item"]',
-                    '.t1', '.job', '.el-item'
-                ];
+                const sels = ['.j_joblist', '.el', '[class*="joblist"]', '[class*="job-item"]', '.t1'];
                 let cards = [];
-                for (const sel of selectors) {
-                    cards = document.querySelectorAll(sel);
-                    if (cards.length > 0) break;
-                }
-                
-                if (cards.length === 0) {
-                    // 最终降级：尝试所有包含职位名的链接
-                    const allLinks = document.querySelectorAll('a[href*="jobs.51job.com"], a[href*="/job/"]');
-                    allLinks.forEach(a => {
-                        const href = a.href;
-                        const text = a.textContent.trim();
-                        if (text && text.length > 2 && text.length < 50) {
-                            jobs.push({
-                                title: text,
-                                company: '',
-                                salary: '',
-                                location: '成都',
-                                tags: '',
-                                link: href,
-                                source: '51job'
-                            });
-                        }
+                for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+                if (!cards.length) {
+                    document.querySelectorAll('a[href*="jobs.51job.com"], a[href*="/job/"]').forEach(a => {
+                        const t = a.textContent.trim();
+                        if (t && t.length > 2 && t.length < 50)
+                            jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'51job'});
                     });
                     return jobs;
                 }
-                
-                cards.forEach(card => {
-                    const getText = (sel) => {
-                        const el = card.querySelector(sel);
-                        return el ? el.textContent.trim() : '';
-                    };
-                    const title = getText('.jname, .t1 a, [class*="jname"], a[href*="job"]');
-                    const company = getText('.cname, [class*="cname"], [class*="company"]');
-                    const salary = getText('.sal, [class*="sal"], [class*="salary"]');
-                    const area = getText('.info .name, [class*="area"], .t3');
-                    const tags = Array.from(card.querySelectorAll('.t1 .s, .d.at, [class*="tag"], .el'))
-                        .map(e => e.textContent.trim()).filter(t => t).join(' | ');
-                    const linkEl = card.querySelector('a[href*="job"], .jname a, a.t1');
-                    const link = linkEl ? linkEl.href : '';
-                    
-                    if (title || company) {
-                        jobs.push({
-                            title: title,
-                            company: company,
-                            salary: salary,
-                            location: area || '成都',
-                            tags: tags,
-                            link: link,
-                            source: '51job'
-                        });
-                    }
+                cards.forEach(c => {
+                    const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                    const le = c.querySelector('a[href*="job"], .jname a, a.t1');
+                    if (g('.jname') || g('.cname'))
+                        jobs.push({title:g('.jname, .t1 a, [class*="jname"]'),company:g('.cname, [class*="cname"]'),
+                            salary:g('.sal, [class*="sal"]'),location:g('.info .name, [class*="area"]')||'成都',
+                            tags:c.textContent.trim().substring(0,300),link:le?le.href:'',source:'51job'});
                 });
                 return jobs;
             }""")
-            print(f"    [DOM] 提取到 {len(raw_jobs)} 个职位")
 
-        # 去重
         seen = set()
-        for job in raw_jobs:
+        for job in (raw_jobs or []):
+            if is_excluded_job(job.get('title', ''), job.get('tags', '')):
+                continue
             key = f"{job.get('title','')}_{job.get('company','')}"
             if key not in seen and (job.get('title') or job.get('company')):
                 seen.add(key)
                 jobs.append(job)
-
-        for j in jobs[:3]:
-            print(f"    -> {j['title'][:30]} | {j.get('company','')[:20]} | {j.get('salary','')}")
-
+        print(f"    提取到 {len(jobs)} 个职位（已排除兼职/校招）")
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
         browser.close()
-
     return jobs
 
 
-# ============ 猎聘抓取（API + Playwright 降级） ============
+# ============ 猎聘抓取（API + 浏览器） ============
 
 def scrape_liepin_api(keyword):
-    """直接调用猎聘 API 接口"""
+    """猎聘 API"""
     print(f"  [猎聘API] 搜索: {keyword}")
     jobs = []
-
     try:
         api_url = "https://api-c.liepin.com/api/com.liepin.searchfront4c.pc-search-job"
         headers = {
             "User-Agent": UA,
-            "Content-Type": "application/json",
+            "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json, text/plain, */*",
             "Origin": "https://www.liepin.com",
             "Referer": f"https://www.liepin.com/zhaopin/?key={urllib.parse.quote(keyword)}&dqs={LIEPIN_CITY}",
             "X-Requested-With": "XMLHttpRequest",
         }
-        payload = {
-            "data": {
-                "mainSearchPcConditionForm": {
-                    "city": LIEPIN_CITY,
-                    "dq": LIEPIN_CITY,
-                    "currentPage": "0",
-                    "pageSize": 40,
-                    "key": keyword,
-                    "workYearCode": "0",
-                    "industry": "",
-                    "salary": "",
-                    "eduLevel": "",
-                    "function": "",
-                    "sortType": "0",
-                },
-                "passThroughForm": {
-                    "scene": "init",
-                    "ckId": "",
-                    "skId": "",
-                    "fkId": "",
-                }
-            }
-        }
+        payload = {"data": {"mainSearchPcConditionForm": {
+            "city": LIEPIN_CITY, "dq": LIEPIN_CITY, "currentPage": "0", "pageSize": 40,
+            "key": keyword, "workYearCode": "0", "industry": "", "salary": "",
+            "eduLevel": "", "function": "", "sortType": "0",
+        }, "passThroughForm": {"scene": "init", "ckId": "", "skId": "", "fkId": ""}}}
         resp = requests.post(api_url, json=payload, headers=headers, timeout=20)
         if resp.status_code == 200:
-            data = resp.json()
-            card_list = (
-                data.get("data", {})
-                .get("data", {})
-                .get("jobCardList", [])
-            )
-            for card in card_list:
-                job_info = card.get("job", {})
-                comp_info = card.get("comp", {})
-                title = job_info.get("title", "")
-                company = comp_info.get("compName", "")
-                salary = job_info.get("salary", "")
-                location = job_info.get("dq", "成都")
-                job_link = job_info.get("link", "")
-                if job_link and not job_link.startswith("http"):
-                    job_link = "https://www.liepin.com" + job_link
-
-                labels = job_info.get("labels", [])
-                comp_scale = comp_info.get("compScale", "")
-                comp_industry = comp_info.get("industryName", "")
-                comp_type = comp_info.get("compType", "")
-                tags = " | ".join(labels) + f" | {comp_scale} | {comp_industry} | {comp_type}"
-
-                if title or company:
-                    jobs.append({
-                        "title": title,
-                        "company": company,
-                        "salary": salary,
-                        "location": location,
-                        "tags": tags,
-                        "link": job_link,
-                        "source": "猎聘",
-                        "comp_industry": comp_industry,
-                        "comp_scale": comp_scale,
-                        "comp_type": comp_type,
-                    })
-            print(f"    [OK] API 返回 {len(jobs)} 个职位")
+            for card in resp.json().get("data", {}).get("data", {}).get("jobCardList", []):
+                ji = card.get("job", {}); ci = card.get("comp", {})
+                title = ji.get("title", "")
+                tags = " | ".join(ji.get("labels", [])) + f" | {ci.get('compScale','')} | {ci.get('industryName','')}"
+                if is_excluded_job(title, tags):
+                    continue
+                link = ji.get("link", "")
+                if link and not link.startswith("http"):
+                    link = "https://www.liepin.com" + link
+                jobs.append({"title": title, "company": ci.get("compName", ""), "salary": ji.get("salary", ""),
+                    "location": ji.get("dq", "成都"), "tags": tags, "link": link, "source": "猎聘"})
+            print(f"    [API] 返回 {len(jobs)} 个职位")
         else:
-            print(f"    [WARN] API 返回 {resp.status_code}，降级到浏览器抓取")
-
+            print(f"    [WARN] API {resp.status_code}")
     except Exception as e:
-        print(f"    [WARN] API 异常: {e}，降级到浏览器抓取")
-
+        print(f"    [WARN] API异常: {e}")
     return jobs
 
 
 def scrape_liepin_browser(playwright, keyword):
-    """猎聘浏览器降级抓取"""
+    """猎聘浏览器降级"""
     print(f"  [猎聘浏览器] 搜索: {keyword}")
     jobs = []
     browser, context = create_browser_context(playwright)
     page = context.new_page()
-
     try:
-        url = f"https://www.liepin.com/zhaopin/?key={keyword}&dqs={LIEPIN_CITY}"
+        url = f"https://www.liepin.com/zhaopin/?key={urllib.parse.quote(keyword)}&dqs={LIEPIN_CITY}"
         page.goto(url, timeout=45000, wait_until="domcontentloaded")
         time.sleep(random.uniform(4, 6))
-
-        # 滚动触发加载
         for _ in range(4):
             page.mouse.wheel(0, random.randint(300, 800))
             time.sleep(random.uniform(0.5, 1.5))
 
         raw_jobs = page.evaluate("""() => {
             const jobs = [];
-            // 猎聘多种选择器
-            const selectors = [
-                '.job-list-item', '[class*="job-item"]', '[class*="job-card"]',
-                '[data-job-id]', '[class*="position-item"]', '.list-item',
-                '.job-card-wrap', '[class*="job-card-wrap"]'
-            ];
+            const sels = ['.job-list-item','[class*="job-item"]','[class*="job-card"]','[data-job-id]','.job-card-wrap'];
             let cards = [];
-            for (const sel of selectors) {
-                cards = document.querySelectorAll(sel);
-                if (cards.length > 0) {
-                    break;
-                }
-            }
-            
-            if (cards.length === 0) {
-                // 降级：从所有链接提取
-                const allLinks = document.querySelectorAll('a[href*="/job/"], a[href*="liepin.com/job"]');
-                allLinks.forEach(a => {
-                    const text = a.textContent.trim();
-                    if (text && text.length > 2 && text.length < 60) {
-                        jobs.push({
-                            title: text,
-                            company: '',
-                            salary: '',
-                            location: '成都',
-                            tags: '',
-                            link: a.href,
-                            source: '猎聘'
-                        });
-                    }
+            for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+            if (!cards.length) {
+                document.querySelectorAll('a[href*="/job/"]').forEach(a => {
+                    const t = a.textContent.trim();
+                    if (t && t.length > 2 && t.length < 60)
+                        jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'猎聘'});
                 });
                 return jobs;
             }
-            
-            cards.forEach(card => {
-                const getText = (sel) => {
-                    const el = card.querySelector(sel);
-                    return el ? el.textContent.trim() : '';
-                };
-                const title = getText('.job-title, [class*="title"], h3, h2, [class*="job-title"]');
-                const company = getText('.company-name, [class*="company"], [class*="corp"], [class*="comp-name"]');
-                const salary = getText('.salary, [class*="salary"]');
-                const location = getText('.area, [class*="area"], [class*="city"], [class*="dq"]');
-                const tags = card.textContent.trim().substring(0, 500);
-                const linkEl = card.querySelector('a[href*="/job/"], a[href*="liepin"], a');
-                const link = linkEl ? linkEl.href : '';
-                
-                if (title || company) {
-                    jobs.push({
-                        title: title,
-                        company: company,
-                        salary: salary,
-                        location: location || '成都',
-                        tags: tags,
-                        link: link,
-                        source: '猎聘'
-                    });
-                }
+            cards.forEach(c => {
+                const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                const le = c.querySelector('a[href*="/job/"], a');
+                if (g('.job-title') || g('[class*="title"]'))
+                    jobs.push({title:g('.job-title,[class*="title"],h3'),company:g('[class*="company"],[class*="comp"]'),
+                        salary:g('[class*="salary"]'),location:g('[class*="area"]')||'成都',
+                        tags:c.textContent.trim().substring(0,500),link:le?le.href:'',source:'猎聘'});
             });
             return jobs;
         }""")
-
-        for job in raw_jobs:
-            if job.get('title') or job.get('company'):
+        for job in (raw_jobs or []):
+            if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
                 jobs.append(job)
-
         print(f"    [DOM] 提取到 {len(jobs)} 个职位")
-
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
         browser.close()
-
     return jobs
 
 
 def scrape_liepin(playwright, keyword):
-    """猎聘抓取：先尝试 API，失败则用浏览器"""
     jobs = scrape_liepin_api(keyword)
     if not jobs:
         jobs = scrape_liepin_browser(playwright, keyword)
     return jobs
 
 
-# ============ 智联招聘抓取 ============
+# ============ Boss直聘抓取 ============
 
-def scrape_zhaopin(playwright, keyword):
-    """抓取智联招聘"""
-    print(f"  [智联] 搜索: {keyword}")
+def scrape_boss(playwright, keyword):
+    """Boss直聘"""
+    print(f"  [Boss直聘] 搜索: {keyword}")
     jobs = []
     browser, context = create_browser_context(playwright)
     page = context.new_page()
-
     try:
-        url = f"https://sou.zhaopin.com/?jl=801&kw={keyword}&p=1"
+        url = f"https://www.zhipin.com/web/geek/job?query={urllib.parse.quote(keyword)}&city=101270100"
         page.goto(url, timeout=45000, wait_until="domcontentloaded")
-        time.sleep(random.uniform(4, 6))
-
-        # 滚动
+        time.sleep(random.uniform(5, 8))
         for _ in range(3):
-            page.mouse.wheel(0, random.randint(300, 800))
+            page.mouse.wheel(0, random.randint(300, 600))
+            time.sleep(random.uniform(0.5, 1))
+
+        raw_jobs = page.evaluate("""() => {
+            const jobs = [];
+            const sels = ['.job-card-wrapper', '.job-card-body', '[class*="job-card"]', '.search-job-result li'];
+            let cards = [];
+            for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+            if (!cards.length) {
+                document.querySelectorAll('a[href*="/job_detail/"]').forEach(a => {
+                    const t = a.textContent.trim();
+                    if (t && t.length > 2 && t.length < 60)
+                        jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'Boss直聘'});
+                });
+                return jobs;
+            }
+            cards.forEach(c => {
+                const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                const le = c.querySelector('a[href*="/job_detail/"], a');
+                if (g('.job-name') || g('[class*="job-title"]'))
+                    jobs.push({title:g('.job-name,[class*="job-title"],h3'),company:g('.company-name,[class*="company"]'),
+                        salary:g('.salary,[class*="salary"]'),location:g('.job-area,[class*="area"]')||'成都',
+                        tags:c.textContent.trim().substring(0,500),link:le?le.href:'',source:'Boss直聘'});
+            });
+            return jobs;
+        }""")
+        for job in (raw_jobs or []):
+            if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
+                jobs.append(job)
+        print(f"    提取到 {len(jobs)} 个职位")
+    except Exception as e:
+        print(f"    [ERROR] {e}")
+    finally:
+        browser.close()
+    return jobs
+
+
+# ============ 58同城抓取 ============
+
+def scrape_58(playwright, keyword):
+    """58同城"""
+    print(f"  [58同城] 搜索: {keyword}")
+    jobs = []
+    browser, context = create_browser_context(playwright)
+    page = context.new_page()
+    try:
+        url = f"https://cd.58.com/job/?key={urllib.parse.quote(keyword)}&final=1&jump=1"
+        page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        time.sleep(random.uniform(3, 5))
+        for _ in range(3):
+            page.mouse.wheel(0, random.randint(300, 600))
             time.sleep(0.5)
 
         raw_jobs = page.evaluate("""() => {
             const jobs = [];
-            const selectors = [
-                '.joblist-box__item', '[class*="joblist"] [class*="item"]',
-                '.positionList .joblist-box__item', '[class*="PositionList"]',
-                '.jobCard', '[class*="job-card"]', '[class*="sou-job-item"]'
+            const sels = ['.job-item', '.list-item', '[class*="job-list"] li', '.infolist .info', '.j_zw_list li'];
+            let cards = [];
+            for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+            if (!cards.length) {
+                document.querySelectorAll('a[href*="/job/"]').forEach(a => {
+                    const t = a.textContent.trim();
+                    if (t && t.length > 2 && t.length < 60)
+                        jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'58同城'});
+                });
+                return jobs;
+            }
+            cards.forEach(c => {
+                const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                const le = c.querySelector('a');
+                if (g('.job_name') || g('[class*="title"]'))
+                    jobs.push({title:g('.job_name,[class*="title"],h3'),company:g('.company_name,[class*="company"]'),
+                        salary:g('.salary,[class*="salary"]'),location:g('.address,[class*="area"]')||'成都',
+                        tags:c.textContent.trim().substring(0,500),link:le?le.href:'',source:'58同城'});
+            });
+            return jobs;
+        }""")
+        for job in (raw_jobs or []):
+            if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
+                jobs.append(job)
+        print(f"    提取到 {len(jobs)} 个职位")
+    except Exception as e:
+        print(f"    [ERROR] {e}")
+    finally:
+        browser.close()
+    return jobs
+
+
+# ============ 鱼泡网抓取 ============
+
+def scrape_yupao(playwright, keyword):
+    """鱼泡网"""
+    print(f"  [鱼泡网] 搜索: {keyword}")
+    jobs = []
+    browser, context = create_browser_context(playwright)
+    page = context.new_page()
+    try:
+        url = f"https://www.yupao.com/job/search?keyword={urllib.parse.quote(keyword)}&cityCode=510100"
+        page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        time.sleep(random.uniform(3, 5))
+        for _ in range(2):
+            page.mouse.wheel(0, random.randint(300, 600))
+            time.sleep(0.5)
+
+        raw_jobs = page.evaluate("""() => {
+            const jobs = [];
+            const sels = ['.job-item', '.job-card', '[class*="job-list"] li', '.list-item'];
+            let cards = [];
+            for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+            if (!cards.length) {
+                document.querySelectorAll('a[href*="/job/"]').forEach(a => {
+                    const t = a.textContent.trim();
+                    if (t && t.length > 2 && t.length < 60)
+                        jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'鱼泡网'});
+                });
+                return jobs;
+            }
+            cards.forEach(c => {
+                const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                const le = c.querySelector('a');
+                if (g('.title') || g('[class*="job-name"]'))
+                    jobs.push({title:g('.title,[class*="job-name"]'),company:g('.company,[class*="company"]'),
+                        salary:g('.salary,[class*="salary"]'),location:g('.area,[class*="city"]')||'成都',
+                        tags:c.textContent.trim().substring(0,500),link:le?le.href:'',source:'鱼泡网'});
+            });
+            return jobs;
+        }""")
+        for job in (raw_jobs or []):
+            if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
+                jobs.append(job)
+        print(f"    提取到 {len(jobs)} 个职位")
+    except Exception as e:
+        print(f"    [ERROR] {e}")
+    finally:
+        browser.close()
+    return jobs
+
+
+# ============ 企业官网招聘页抓取 ============
+
+def scrape_company_career(playwright, company):
+    """抓取企业官网招聘页"""
+    name = company['name']
+    ctype = company['type']
+    career_url = company['career_url']
+    print(f"  [企业官网] {name} ({ctype})")
+
+    jobs = []
+    browser, context = create_browser_context(playwright)
+    page = context.new_page()
+    try:
+        page.goto(career_url, timeout=30000, wait_until="domcontentloaded")
+        time.sleep(random.uniform(2, 4))
+
+        # 尝试在页面中搜索关键词
+        for kw in SEARCH_KEYWORDS_LITE:
+            # 尝试使用页面搜索功能
+            try:
+                search_input = page.query_selector('input[type="text"], input[type="search"], input[placeholder*="搜索"], input[placeholder*="search"]')
+                if search_input:
+                    search_input.fill(kw)
+                    time.sleep(1)
+                    page.keyboard.press("Enter")
+                    time.sleep(random.uniform(2, 3))
+            except:
+                pass
+
+        # 提取页面中的招聘信息
+        raw_jobs = page.evaluate("""(companyName) => {
+            const jobs = [];
+            // 通用招聘卡片选择器
+            const sels = [
+                '.job-item', '.position-item', '.job-card', '[class*="job-list"] li',
+                '.recruit-list li', '.job_content', '.job-line', '.jobrow',
+                '[class*="position"]', '[class*="recruit"]', 'tr[class*="job"]',
+                '.list-item', '.job-list-item', '[data-job-id]'
             ];
             let cards = [];
-            for (const sel of selectors) {
-                cards = document.querySelectorAll(sel);
-                if (cards.length > 0) break;
-            }
-            
+            for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
+
             if (cards.length === 0) {
-                // 降级
-                const allLinks = document.querySelectorAll('a[href*="/jobs/"], a[href*="zhaopin.com/job"]');
-                allLinks.forEach(a => {
+                // 降级：查找包含职位关键词的链接
+                const links = document.querySelectorAll('a');
+                links.forEach(a => {
                     const text = a.textContent.trim();
-                    if (text && text.length > 2 && text.length < 60) {
-                        jobs.push({
-                            title: text, company: '', salary: '',
-                            location: '成都', tags: '', link: a.href, source: '智联'
-                        });
+                    const href = a.href;
+                    if (href && text.length > 2 && text.length < 80 &&
+                        (text.includes('工程师') || text.includes('专员') || text.includes('经理') ||
+                         text.includes('分析师') || text.includes('研究员') || text.includes('设计') ||
+                         text.includes('算法') || text.includes('开发'))) {
+                        jobs.push({title:text, company:companyName, salary:'', location:'成都',
+                            tags:'', link:href, source:'企业官网'});
                     }
                 });
                 return jobs;
             }
-            
-            cards.forEach(card => {
-                const getText = (sel) => {
-                    const el = card.querySelector(sel);
-                    return el ? el.textContent.trim() : '';
-                };
-                jobs.push({
-                    title: getText('.iteminfo__line2__jobname, [class*="jobname"], h3, [class*="title"]'),
-                    company: getText('.iteminfo__line1__compname, [class*="compname"], [class*="company"]'),
-                    salary: getText('.iteminfo__line2__jobdesc, [class*="salary"], [class*="jobdesc"]'),
-                    location: getText('.iteminfo__line2__jobWidget, [class*="area"], [class*="city"]'),
-                    tags: card.textContent.trim().substring(0, 500),
-                    link: (card.querySelector('a') || {}).href || '',
-                    source: '智联'
-                });
+
+            cards.forEach(c => {
+                const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                const le = c.querySelector('a');
+                const title = g('.job-name, .job-title, .position-name, [class*="title"], h3, h4');
+                if (title)
+                    jobs.push({title:title, company:companyName, salary:g('.salary, [class*="salary"]'),
+                        location:g('.area, [class*="city"]')||'成都',
+                        tags:c.textContent.trim().substring(0,500), link:le?le.href:careerUrl,
+                        source:'企业官网'});
             });
             return jobs;
-        }""")
+        }""", name)
 
-        for job in raw_jobs:
-            if job.get('title') or job.get('company'):
+        # 标注公司类型
+        for job in (raw_jobs or []):
+            job['company_type'] = ctype
+            if not is_excluded_job(job.get('title', ''), job.get('tags', '')):
                 jobs.append(job)
 
         print(f"    提取到 {len(jobs)} 个职位")
@@ -472,47 +555,45 @@ def scrape_zhaopin(playwright, keyword):
         print(f"    [ERROR] {e}")
     finally:
         browser.close()
-
     return jobs
 
 
 # ============ 汇总抓取 ============
 
 def scrape_all_jobs():
-    """抓取所有关键词的职位"""
+    """抓取所有平台的职位"""
     all_jobs = []
     seen = set()
 
+    def add_jobs(jobs_list):
+        for j in jobs_list:
+            key = f"{j.get('title','')}_{j.get('company','')}"
+            if key not in seen and (j.get('title') or j.get('company')):
+                seen.add(key)
+                all_jobs.append(j)
+
     with sync_playwright() as p:
+        # === 招聘平台 ===
         for i, keyword in enumerate(SEARCH_KEYWORDS, 1):
             print(f"\n[{i}/{len(SEARCH_KEYWORDS)}] 关键词: {keyword}")
+            add_jobs(scrape_51job(p, keyword))
+            add_jobs(scrape_liepin(p, keyword))
 
-            # 51job
-            jobs_51 = scrape_51job(p, keyword)
-            for j in jobs_51:
-                key = f"{j.get('title','')}_{j.get('company','')}"
-                if key not in seen:
-                    seen.add(key)
-                    all_jobs.append(j)
+            # Boss/58 用精简关键词
+            if keyword in SEARCH_KEYWORDS_LITE:
+                add_jobs(scrape_boss(p, keyword))
+                add_jobs(scrape_58(p, keyword))
+                add_jobs(scrape_yupao(p, keyword))
 
-            # 猎聘
-            jobs_lp = scrape_liepin(p, keyword)
-            for j in jobs_lp:
-                key = f"{j.get('title','')}_{j.get('company','')}"
-                if key not in seen:
-                    seen.add(key)
-                    all_jobs.append(j)
+            time.sleep(random.uniform(1, 2))
 
-            # 智联（每3个关键词抓一次，避免太多）
-            if i % 3 == 0:
-                jobs_zp = scrape_zhaopin(p, keyword)
-                for j in jobs_zp:
-                    key = f"{j.get('title','')}_{j.get('company','')}"
-                    if key not in seen:
-                        seen.add(key)
-                        all_jobs.append(j)
-
-            time.sleep(random.uniform(1, 3))
+        # === 企业官网 ===
+        print(f"\n--- 企业官网招聘页抓取 ({len(CHENGDU_COMPANIES)}家企业) ---")
+        for i, company in enumerate(CHENGDU_COMPANIES, 1):
+            if i % 10 == 0:
+                print(f"  进度: {i}/{len(CHENGDU_COMPANIES)}")
+            add_jobs(scrape_company_career(p, company))
+            time.sleep(random.uniform(0.5, 1.5))
 
     print(f"\n去重后总计: {len(all_jobs)} 个职位")
     return all_jobs
@@ -521,22 +602,21 @@ def scrape_all_jobs():
 # ============ GLM-4-Flash 智能筛选 ============
 
 def filter_jobs_with_llm(jobs):
-    """使用 GLM-4-Flash 对抓取的职位进行智能筛选"""
+    """使用 GLM-4-Flash 智能筛选"""
     if not jobs:
         return []
 
-    # 分批处理（每批最多30个，避免 token 超限）
     BATCH_SIZE = 30
     all_filtered = []
 
     for batch_start in range(0, len(jobs), BATCH_SIZE):
         batch = jobs[batch_start:batch_start + BATCH_SIZE]
-        print(f"  筛选批次 {batch_start // BATCH_SIZE + 1}（{len(batch)} 个职位）...")
+        print(f"  筛选批次 {batch_start // BATCH_SIZE + 1}（{len(batch)} 个）...")
 
         jobs_text = ""
         for idx, job in enumerate(batch, 1):
             jobs_text += f"\n{idx}. 职位: {job.get('title', '')}\n"
-            jobs_text += f"   公司: {job.get('company', '')}\n"
+            jobs_text += f"   公司: {job.get('company', '')}（类型: {job.get('company_type', '未知')}）\n"
             jobs_text += f"   薪资: {job.get('salary', '')}\n"
             jobs_text += f"   地点: {job.get('location', '')}\n"
             jobs_text += f"   标签/要求: {job.get('tags', '')[:300]}\n"
@@ -547,72 +627,47 @@ def filter_jobs_with_llm(jobs):
         prompt = f"""以下是搜索到的成都地区职位信息，请严格按以下条件筛选：
 
 【筛选条件 - 必须全部满足】
-1. 领域匹配（满足任一即可）：
-   - 气象/大气科学/气候/天气预报
-   - 环境科学/环境工程/生态环境/环保
-   - 大模型/LLM/AI agent/人工智能/机器学习/深度学习
-   - 注意：职位名称不一定包含关键词，只要职责描述或技能要求中涉及上述领域就保留。
-   - 例如"算法工程师"如果要求中提到大模型/NLP/AI，应该保留。
-
-2. 专业要求：
-   - 如果明确要求了学科专业，要求的专业中必须包含气象/大气科学/环境相关专业，否则排除。
-   - 如果没有明确限制专业（专业不限/未提及），则保留。
-   - "计算机相关专业"等不限制具体专业的，保留。
-
-3. 公司类别：必须是国企/央企/外资/合资企业。
-   - 民营、创业公司排除。
-   - 如果无法判断公司类别，标注"待确认"并保留。
-   - 银行/研究所/事业单位也保留。
-
-4. 薪资：月薪不低于10000元。
-   - "20-25万/年" = 约1.67-2.08万/月，符合
-   - "1.3-2.6万" = 1.3-2.6万/月，符合
-   - "面议"保留
-   - "10-15K" = 1-1.5万/月，符合
-   - 低于1万/月的排除
+1. 全职社招：必须是全职+社招。排除兼职、校招、校园招聘、应届生、实习。
+2. 领域匹配（满足任一）：
+   - 气象/大气科学/气候/天气预报/气象算法
+   - 环境科学/环境工程/生态环境/环保/水处理
+   - 大模型/LLM/AI agent/人工智能/机器学习/深度学习/NLP
+   - 职位名称不一定包含关键词，只要职责描述或技能要求中涉及上述领域就保留。
+3. 专业要求：
+   - 如果明确要求了学科专业，要求中必须包含气象/大气科学/环境相关专业，否则排除。
+   - 如果没有明确限制专业（专业不限/未提及/计算机相关），则保留。
+4. 公司类别：必须是国企/央企/外资/合资/研究所/事业单位。
+   - 民营、创业公司排除。如果无法判断，标注"待确认"并保留。
+5. 薪资：月薪不低于10000元。"面议"保留。低于1万/月排除。
 
 【职位数据】
 {jobs_text}
 
-请以JSON数组格式返回符合条件的职位，每个职位包含：
-[{{"company":"公司名","company_type":"国企/央企/外资/合资/研究所/事业单位/待确认","location":"地点","requirements":"招聘要求（含专业要求+学历+技能+职责，尽量完整）","salary":"薪资范围","source_url":"来源链接（必须有）","source_site":"来源网站（51job/猎聘/智联）"}}]
+请以JSON数组返回符合条件的职位：
+[{{"company":"公司名","company_type":"国企/央企/外资/合资/研究所/事业单位/待确认","location":"地点","requirements":"招聘要求（尽量完整）","salary":"薪资范围","source_url":"来源链接","source_site":"来源网站"}}]
 
-注意：
-- source_url 必须是上面职位数据中对应的链接
-- requirements 字段请尽量完整汇总该职位的所有要求信息
-- 如果没有符合条件的职位，返回 []
-- 只返回JSON，不要其他文字"""
+注意：source_url必须是上面数据中对应的链接。如果没有符合条件的返回[]。只返回JSON。"""
 
         try:
-            resp = requests.post(
-                ZHIPU_API_URL,
-                headers={
-                    "Authorization": f"Bearer {ZHIPU_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "glm-4-flash",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "temperature": 0.1,
-                },
-                timeout=120
-            )
+            resp = requests.post(ZHIPU_API_URL, headers={
+                "Authorization": f"Bearer {ZHIPU_API_KEY}", "Content-Type": "application/json"
+            }, json={
+                "model": "glm-4-flash",
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False, "temperature": 0.1,
+            }, timeout=120)
             resp.raise_for_status()
-            data = resp.json()
-            content = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            content = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '')
             batch_filtered = parse_json_from_text(content)
             all_filtered.extend(batch_filtered)
-            print(f"    本批筛选后: {len(batch_filtered)} 个")
-
+            print(f"    本批: {len(batch_filtered)} 个")
         except Exception as e:
-            print(f"    [ERROR] LLM筛选失败: {e}")
+            print(f"    [ERROR] {e}")
 
     return all_filtered
 
 
 def parse_json_from_text(text):
-    """从文本中提取 JSON 数组"""
     if not text:
         return []
     text = text.replace('```json', '').replace('```', '').strip()
@@ -629,14 +684,12 @@ def parse_json_from_text(text):
             return result
     except json.JSONDecodeError:
         pass
-    print(f"  [WARN] JSON解析失败")
     return []
 
 
-# ============ HTML 报告生成 ============
+# ============ HTML 报告 ============
 
 def generate_html(jobs, date_display):
-    """生成 HTML 报告 - 公司名可点击跳转、标注来源"""
     now_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
 
     if not jobs:
@@ -645,7 +698,7 @@ def generate_html(jobs, date_display):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>成都招聘日报 - {date_display}</title>
 <style>
-body {{ font-family: 'Microsoft YaHei','Noto Sans CJK SC',sans-serif; margin:0; padding:20px; background:#f5f5f5; }}
+body {{ font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif; margin:0; padding:20px; background:#f5f5f5; }}
 .container {{ max-width:800px; margin:0 auto; background:white; padding:40px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-align:center; }}
 h1 {{ color:#333; border-bottom:2px solid #9e9e9e; padding-bottom:10px; }}
 .no-results {{ color:#999; font-size:18px; padding:40px 0; }}
@@ -676,13 +729,11 @@ h1 {{ color:#333; border-bottom:2px solid #9e9e9e; padding-bottom:10px; }}
         elif '研究' in company_type or '事业' in company_type:
             type_class = 'type-research'
 
-        # 公司名可点击跳转
         if source_url and source_url.startswith('http'):
             company_link = f'<a href="{source_url}" target="_blank" class="company-link">{company}</a>'
         else:
             company_link = company
 
-        # 来源标记
         source_badge = f'<span class="source-badge">{source_site}</span>' if source_site else ''
 
         rows.append(f"""<tr>
@@ -721,21 +772,20 @@ tr:hover {{ background:#f0f0f0; }}
 .footer {{ margin-top:30px; text-align:center; color:#bbb; font-size:12px; }}
 </style></head><body><div class="container">
 <h1>成都招聘日报 - {date_display}</h1>
-<div class="summary">共找到 <strong>{len(jobs)}</strong> 个符合条件岗位（国企/央企/外资/合资 | 薪资≥1万 | 气象/环境/大模型/AI相关）<br>
-<span style="font-size:13px;color:#666;">点击公司名称可跳转到原始招聘页面</span></div>
+<div class="summary">共找到 <strong>{len(jobs)}</strong> 个符合条件岗位（全职社招 | 国企/央企/外资/合资 | 薪资≥1万 | 气象/环境/大模型/AI）<br>
+<span style="font-size:13px;color:#666;">点击公司名称可跳转到原始招聘页面 | 数据来源：51job/猎聘/Boss直聘/58同城/鱼泡网/企业官网</span></div>
 <table><thead><tr>
 <th>#</th><th>公司名称</th><th>公司类别</th><th>公司地点</th><th>招聘要求</th><th>薪资范围</th>
 </tr></thead><tbody>
 {chr(10).join(rows)}
 </tbody></table>
-<div class="footer">由 GitHub Actions + Playwright 自动生成 | 数据来源：51job/猎聘/智联 | {now_str}</div>
+<div class="footer">由 GitHub Actions + Playwright 自动生成 | {now_str}</div>
 </div></body></html>"""
 
 
-# ============ Server酱 通知 ============
+# ============ Server酱 ============
 
 def send_notification(title, desp):
-    """通过 Server酱 推送微信通知"""
     if not SERVERCHAN_KEY:
         print("[WARN] SERVERCHAN_KEY 未设置")
         return
@@ -747,83 +797,73 @@ def send_notification(title, desp):
         else:
             print(f"[ERROR] 通知失败: {resp.text[:200]}")
     except Exception as e:
-        print(f"[ERROR] 通知异常: {e}")
+        print(f"[ERROR] {e}")
 
 
 # ============ 主流程 ============
 
 def main():
     if not ZHIPU_API_KEY:
-        print("[ERROR] ZHIPU_API_KEY 未设置")
-        sys.exit(1)
+        print("[ERROR] ZHIPU_API_KEY 未设置"); sys.exit(1)
     if not SERVERCHAN_KEY:
-        print("[ERROR] SERVERCHAN_KEY 未设置")
-        sys.exit(1)
+        print("[ERROR] SERVERCHAN_KEY 未设置"); sys.exit(1)
 
     tz = timezone(timedelta(hours=8))
     now = datetime.now(tz)
     date_str = now.strftime('%Y%m%d')
     date_display = now.strftime('%Y-%m-%d')
 
-    print(f"{'='*50}")
-    print(f"成都招聘日报 {date_display}")
-    print(f"{'='*50}")
+    print(f"{'='*60}")
+    print(f"成都招聘日报 v3 {date_display}")
+    print(f"平台: 51job/猎聘/Boss直聘/58同城/鱼泡网/企业官网")
+    print(f"企业库: {len(CHENGDU_COMPANIES)}家成都国企/央企/外资/合资")
+    print(f"{'='*60}")
 
-    # 第一步：抓取职位
-    print(f"\n[1/4] 抓取招聘网站...")
+    # 1. 抓取
+    print(f"\n[1/4] 抓取招聘信息...")
     raw_jobs = scrape_all_jobs()
-
     if not raw_jobs:
-        print("[WARN] 未抓取到任何职位数据")
+        print("[WARN] 未抓取到任何职位")
 
-    # 第二步：LLM 筛选
+    # 2. LLM筛选
     print(f"\n[2/4] GLM-4-Flash 智能筛选...")
-    filtered_jobs = filter_jobs_with_llm(raw_jobs)
-    print(f"  筛选后: {len(filtered_jobs)} 个岗位")
+    filtered = filter_jobs_with_llm(raw_jobs)
+    print(f"  筛选后: {len(filtered)} 个岗位")
 
-    # 第三步：生成 HTML
+    # 3. HTML
     print(f"\n[3/4] 生成 HTML 报告...")
     os.makedirs(REPORT_DIR, exist_ok=True)
-    filename = f"{date_str}.html" if filtered_jobs else "无.html"
+    filename = f"{date_str}.html" if filtered else "无.html"
     filepath = os.path.join(REPORT_DIR, filename)
     with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(generate_html(filtered_jobs, date_display))
+        f.write(generate_html(filtered, date_display))
     print(f"  报告: {filepath}")
 
-    # 第四步：推送微信
+    # 4. 微信
     print(f"\n[4/4] 推送微信通知...")
-    if filtered_jobs:
-        title = f"成都招聘日报 {date_display}（{len(filtered_jobs)}个岗位）"
-        lines = [f"今日共找到 **{len(filtered_jobs)}** 个符合条件岗位：\n"]
-        for i, job in enumerate(filtered_jobs, 1):
+    if filtered:
+        title = f"成都招聘日报 {date_display}（{len(filtered)}个岗位）"
+        lines = [f"今日共找到 **{len(filtered)}** 个符合条件岗位（全职社招）：\n"]
+        for i, job in enumerate(filtered, 1):
             company = job.get('company', '未知')
-            company_type = job.get('company_type', '')
+            ctype = job.get('company_type', '')
             salary = job.get('salary', '')
-            location = job.get('location', '')
-            source_site = job.get('source_site', job.get('source', ''))
-            source_url = job.get('source_url', '')
-            requirements = job.get('requirements', '')[:80]
-
-            # 带 source_url 的公司名做成链接
-            if source_url and source_url.startswith('http'):
-                company_str = f"[{company}]({source_url})"
-            else:
-                company_str = f"**{company}**"
-
-            line = f"{i}. {company_str}（{company_type}）\n"
-            line += f"   薪资: {salary} | 地点: {location} | 来源: {source_site}\n"
-            if requirements:
-                line += f"   要求: {requirements}...\n"
-            lines.append(line)
-
+            loc = job.get('location', '')
+            src = job.get('source_site', job.get('source', ''))
+            url = job.get('source_url', '')
+            req = job.get('requirements', '')[:80]
+            comp_str = f"[{company}]({url})" if url and url.startswith('http') else f"**{company}**"
+            lines.append(f"{i}. {comp_str}（{ctype}）\n   薪资: {salary} | 地点: {loc} | 来源: {src}\n")
+            if req:
+                lines.append(f"   要求: {req}...\n")
         lines.append(f"\n完整报告: reports/{filename}")
         desp = '\n'.join(lines)
     else:
-        title = f"成都招聘日报 {date_display} - 今日无符合条件岗位"
-        desp = f"今日抓取到 {len(raw_jobs)} 个职位，经筛选后无符合条件岗位。\n明天继续关注。\n\n完整报告: reports/{filename}"
+        title = f"成都招聘日报 {date_display} - 无符合条件岗位"
+        desp = f"抓取到 {len(raw_jobs)} 个职位，筛选后无符合条件岗位。\n\n报告: reports/{filename}"
     send_notification(title, desp)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'='*60}")
     print("完成!")
 
 
