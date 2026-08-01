@@ -2,21 +2,34 @@ name: 成都招聘日报
 
 on:
   schedule:
-    # 每天 21:30 北京时间（UTC+8，即 UTC 13:30）
-    - cron: '30 13 * * *'
-  # 允许手动触发（用于测试）
+    # 5轮搜索：北京时间 2:00 / 3:00 / 4:00 / 5:00 / 6:00 (UTC+8)
+    # UTC 18:00 = 北京 2:00, UTC 19:00 = 北京 3:00, UTC 20:00 = 北京 4:00, UTC 21:00 = 北京 5:00, UTC 22:00 = 北京 6:00
+    - cron: '0 18 * * *'   # 轮次1: 北京 2:00
+    - cron: '0 19 * * *'   # 轮次2: 北京 3:00
+    - cron: '0 20 * * *'   # 轮次3: 北京 4:00
+    - cron: '0 21 * * *'   # 轮次4: 北京 5:00
+    - cron: '0 22 * * *'   # 轮次5: 北京 6:00
+    # 合并推送：北京时间 9:00 (UTC+8) = UTC 1:00
+    - cron: '0 1 * * *'    # 轮次6: 北京 9:00 (合并5轮+推送)
   workflow_dispatch:
+    inputs:
+      round:
+        description: '搜索轮次 (1-5搜索 / 6=合并推送 / 0=自动检测)'
+        required: false
+        default: '6'
 
 jobs:
   collect-jobs:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: write
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
@@ -33,12 +46,37 @@ jobs:
         env:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          SEARCH_ROUND: ${{ github.event.inputs.round || '0' }}
         run: python main.py
 
-      - name: 提交并推送报告
+      - name: 提交并推送结果
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 当前轮次（与main.py相同的逻辑）
+          HOUR=$(TZ='Asia/Shanghai' date +%H)
+          ROUND="${{ github.event.inputs.round }}"
+          if [ -z "$ROUND" ] || [ "$ROUND" = "0" ]; then
+            if [ "$HOUR" -ge 2 ] && [ "$HOUR" -lt 3 ]; then
+              ROUND=1
+            elif [ "$HOUR" -ge 3 ] && [ "$HOUR" -lt 4 ]; then
+              ROUND=2
+            elif [ "$HOUR" -ge 4 ] && [ "$HOUR" -lt 5 ]; then
+              ROUND=3
+            elif [ "$HOUR" -ge 5 ] && [ "$HOUR" -lt 6 ]; then
+              ROUND=4
+            elif [ "$HOUR" -ge 6 ] && [ "$HOUR" -lt 7 ]; then
+              ROUND=5
+            elif [ "$HOUR" -ge 9 ]; then
+              ROUND=6
+            else
+              ROUND=5
+            fi
+          fi
+
+          DATE=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
           git add reports/
-          git diff --staged --quiet || git commit -m "招聘日报 $(TZ='Asia/Shanghai' date +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "招聘数据 轮次${ROUND} ${DATE}"
+          git pull --rebase origin "${{ github.ref_name }}" || true
           git push
