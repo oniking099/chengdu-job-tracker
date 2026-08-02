@@ -225,6 +225,55 @@ def create_browser_context(playwright):
     return browser, context
 
 
+def resolve_real_url(context, url, timeout=12000):
+    """用浏览器打开链接，从地址栏获取真实URL。
+    
+    统一适配所有平台：51job/猎聘/智联/Boss/58/鱼泡/成信大/企业官网。
+    模拟人类点击链接 -> 等页面加载 -> 从地址栏读取真实URL。
+    处理重定向、相对路径、JS跳转等情况。
+    """
+    if not url:
+        return ''
+    
+    # 规范化URL
+    url = _normalize_url(url)
+    if not url.startswith('http'):
+        return url
+    
+    detail_page = context.new_page()
+    try:
+        detail_page.goto(url, timeout=timeout, wait_until='domcontentloaded')
+        time.sleep(0.8)  # 等待JS重定向完成
+        real_url = detail_page.url
+        
+        # 如果真实URL和原始URL不同（发生了重定向），返回真实URL
+        if real_url and real_url.startswith('http'):
+            return real_url
+        return url
+    except Exception as e:
+        return url
+    finally:
+        detail_page.close()
+
+
+def resolve_job_urls(context, jobs, max_count=40):
+    """批量用浏览器打开每个职位链接，获取真实URL。
+    只处理通过预过滤的职位（数量已较少）。
+    """
+    if not jobs:
+        return jobs
+    
+    count = min(len(jobs), max_count)
+    for i in range(count):
+        href = jobs[i].get('link', '')
+        if href and href.startswith('http'):
+            jobs[i]['link'] = resolve_real_url(context, href)
+            # 小延迟避免被封
+            time.sleep(0.3)
+    
+    return jobs
+
+
 def is_excluded_job(title, tags="", company=""):
     """检查是否应排除：兼职/校招/博士/互联网大厂/年龄限制/党员要求/排除行业"""
     text = (title + " " + tags).lower()
@@ -417,6 +466,10 @@ def scrape_51job(playwright, keyword):
                 seen.add(key)
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位（已排除兼职/校招/大厂/年龄/党员/低薪）")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -519,6 +572,10 @@ def scrape_liepin_browser(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')) and passes_salary_filter(job.get('salary', '')):
                 jobs.append(job)
         print(f"    [DOM] 提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -588,6 +645,10 @@ def scrape_zhaopin(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')) and passes_salary_filter(job.get('salary', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -647,6 +708,10 @@ def scrape_boss(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')) and passes_salary_filter(job.get('salary', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -696,6 +761,10 @@ def scrape_58(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')) and passes_salary_filter(job.get('salary', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -745,6 +814,10 @@ def scrape_yupao(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')) and passes_salary_filter(job.get('salary', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -795,6 +868,10 @@ def scrape_cuit(playwright, keyword):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
@@ -894,6 +971,10 @@ def scrape_company_career(context, company):
             if not is_excluded_job(job.get('title', ''), job.get('tags', ''), job.get('company', '')):
                 jobs.append(job)
         print(f"    提取到 {len(jobs)} 个职位")
+        # 用浏览器打开每个链接，从地址栏获取真实URL
+        if jobs:
+            print(f"    [URL验证] 用浏览器打开 {len(jobs)} 个链接获取真实URL...")
+            jobs = resolve_job_urls(context, jobs)
     except Exception as e:
         print(f"    [ERROR] {e}")
     finally:
