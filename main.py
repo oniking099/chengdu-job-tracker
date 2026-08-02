@@ -436,41 +436,40 @@ def scrape_51job(playwright, keyword):
 
             raw_jobs = page.evaluate("""() => {
                 const jobs = [];
-                // 51job岗位详情页链接格式: jobs.51job.com/hj数字/ 或 mq.51job.com/i数字/
+                // 策略1：直接找岗位详情页链接(hj格式)，这是最可靠的方式
+                const hjLinks = document.querySelectorAll('a[href*="jobs.51job.com/hj"], a[href*="mq.51job.com/i"]');
+                if (hjLinks.length > 0) {
+                    hjLinks.forEach(a => {
+                        const href = a.href;
+                        const t = a.textContent.trim();
+                        if (href && t && t.length > 2 && t.length < 50)
+                            jobs.push({title:t, company:'', salary:'', location:'成都', tags:'', link:href, source:'51job'});
+                    });
+                    if (jobs.length > 0) return jobs;
+                }
+                // 策略2：card-based提取
                 const sels = ['.j_joblist', '.el', '[class*="joblist"]', '[class*="job-item"]', '.t1'];
                 let cards = [];
                 for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
-                if (!cards.length) {
-                    // 回退：优先找岗位详情页链接(hj格式)，排除公司页面(all/co)
-                    document.querySelectorAll('a[href*="jobs.51job.com/hj"], a[href*="mq.51job.com/i"]').forEach(a => {
-                        const href = a.href;
-                        if (href) {
-                            const t = a.textContent.trim();
-                            if (t && t.length > 2 && t.length < 50)
-                                jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:href,source:'51job'});
-                        }
+                if (cards.length) {
+                    cards.forEach(c => {
+                        const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
+                        const le = c.querySelector('a[href*="jobs.51job.com/hj"], a[href*="mq.51job.com/i"], a[href*="jobs.51job.com"]:not([href*="/all/co"])');
+                        if (g('.jname') || g('.cname'))
+                            jobs.push({title:g('.jname, .t1 a, [class*="jname"]'),company:g('.cname, [class*="cname"]'),
+                                salary:g('.sal, [class*="sal"]'),location:g('.info .name, [class*="area"]')||'成都',
+                                tags:c.textContent.trim().substring(0,300),link:le?le.href:'',source:'51job'});
                     });
-                    // 如果没找到hj链接，回退到所有51job链接（排除公司页面）
-                    if (jobs.length === 0) {
-                        document.querySelectorAll('a[href*="jobs.51job.com"]').forEach(a => {
-                            const href = a.href;
-                            if (href && !href.includes('/all/co')) {
-                                const t = a.textContent.trim();
-                                if (t && t.length > 2 && t.length < 50)
-                                    jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:href,source:'51job'});
-                            }
-                        });
-                    }
-                    return jobs;
+                    if (jobs.length > 0) return jobs;
                 }
-                cards.forEach(c => {
-                    const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
-                    // 优先选岗位详情页链接(hj格式)，排除公司页面
-                    const le = c.querySelector('a[href*="jobs.51job.com/hj"], a[href*="mq.51job.com/i"], a[href*="jobs.51job.com"]:not([href*="/all/co"])');
-                    if (g('.jname') || g('.cname'))
-                        jobs.push({title:g('.jname, .t1 a, [class*="jname"]'),company:g('.cname, [class*="cname"]'),
-                            salary:g('.sal, [class*="sal"]'),location:g('.info .name, [class*="area"]')||'成都',
-                            tags:c.textContent.trim().substring(0,300),link:le?le.href:'',source:'51job'});
+                // 策略3：找所有非公司页面的51job链接
+                document.querySelectorAll('a[href*="jobs.51job.com"]').forEach(a => {
+                    const href = a.href;
+                    if (href && !href.includes('/all/co')) {
+                        const t = a.textContent.trim();
+                        if (t && t.length > 2 && t.length < 50)
+                            jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:href,source:'51job'});
+                    }
                 });
                 return jobs;
             }""")
