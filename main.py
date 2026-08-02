@@ -1930,9 +1930,12 @@ def main():
 
     # 推送微信通知
     print(f"\n[轮次6] 推送微信通知...")
+    # GitHub Pages 报告链接
+    pages_url = f"https://oniking099.github.io/chengdu-job-tracker/reports/{filename}"
     if filtered:
         title = f"成都招聘日报 {date_display}（{len(filtered)}个岗位）"
-        lines = [f"今日共找到 **{len(filtered)}** 个符合条件岗位（全职社招 | 月薪≥1.2万/其他≥1.8万）：\n"]
+        lines = [f"今日共找到 **{len(filtered)}** 个符合条件岗位（全职社招 | 月薪≥1.2万/其他≥1.8万）\n"]
+        lines.append(f"\n**[点击查看完整招聘报告]({pages_url})**\n")
         # 按类型分组汇总
         type_groups = {}
         for job in filtered:
@@ -1950,11 +1953,11 @@ def main():
                 url = job.get('source_url', '')
                 comp_str = f"[{company}]({url})" if url and url.startswith('http') else f"**{company}**"
                 lines.append(f"- {comp_str} | {pos} | {salary} | {src}\n")
-        lines.append(f"\n完整报告: reports/{filename}")
+        lines.append(f"\n---\n完整报告（卡片UI）: [{pages_url}]({pages_url})")
         desp = '\n'.join(lines)
     else:
         title = f"成都招聘日报 {date_display} - 无符合条件岗位"
-        desp = f"5轮搜索共抓取 {len(all_raw_jobs)} 个职位，筛选后无符合条件岗位。\n\n报告: reports/{filename}"
+        desp = f"5轮搜索共抓取 {len(all_raw_jobs)} 个职位，筛选后无符合条件岗位。\n\n报告: {pages_url}"
     send_notification(title, desp)
 
     # 清理中间结果
