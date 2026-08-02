@@ -418,6 +418,22 @@ def scrape_51job(playwright, keyword):
                 print(f"    [DEBUG] 第一条数据keys: {list(raw_jobs[0].keys())}")
 
         if not raw_jobs:
+            # 调试：打印页面上所有51job链接模式
+            debug_links = page.evaluate("""() => {
+                const patterns = {};
+                document.querySelectorAll('a[href]').forEach(a => {
+                    const href = a.href;
+                    if (href && href.includes('51job')) {
+                        // 提取URL模式：替换数字为X
+                        const pattern = href.replace(/\\d+/g, 'X');
+                        patterns[pattern] = (patterns[pattern] || 0) + 1;
+                    }
+                });
+                return Object.entries(patterns).sort((a,b) => b[1]-a[1]).slice(0, 10);
+            }""")
+            if debug_links:
+                print(f"    [DEBUG] 51job链接模式: {debug_links}")
+
             raw_jobs = page.evaluate("""() => {
                 const jobs = [];
                 // 51job岗位详情页链接格式: jobs.51job.com/数字.html
