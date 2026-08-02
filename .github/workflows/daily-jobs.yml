@@ -2,15 +2,15 @@ name: 成都招聘日报
 
 on:
   schedule:
-    # 5轮搜索：北京时间 2:00 / 3:00 / 4:00 / 5:00 / 6:00 (UTC+8)
-    # UTC 18:00 = 北京 2:00, UTC 19:00 = 北京 3:00, UTC 20:00 = 北京 4:00, UTC 21:00 = 北京 5:00, UTC 22:00 = 北京 6:00
-    - cron: '0 18 * * *'   # 轮次1: 北京 2:00
-    - cron: '0 19 * * *'   # 轮次2: 北京 3:00
-    - cron: '0 20 * * *'   # 轮次3: 北京 4:00
-    - cron: '0 21 * * *'   # 轮次4: 北京 5:00
-    - cron: '0 22 * * *'   # 轮次5: 北京 6:00
-    # 合并推送：北京时间 9:00 (UTC+8) = UTC 1:00
-    - cron: '0 1 * * *'    # 轮次6: 北京 9:00 (合并5轮+推送)
+    # 5轮搜索：北京时间 13:00 / 14:00 / 15:00 / 16:00 / 17:00 (UTC+8)
+    # UTC 5:00 = 北京 13:00, UTC 6:00 = 北京 14:00, UTC 7:00 = 北京 15:00, UTC 8:00 = 北京 16:00, UTC 9:00 = 北京 17:00
+    - cron: '0 5 * * *'    # 轮次1: 北京 13:00
+    - cron: '0 6 * * *'    # 轮次2: 北京 14:00
+    - cron: '0 7 * * *'    # 轮次3: 北京 15:00
+    - cron: '0 8 * * *'    # 轮次4: 北京 16:00
+    - cron: '0 9 * * *'    # 轮次5: 北京 17:00
+    # 合并推送：北京时间 20:00 (UTC+8) = UTC 12:00
+    - cron: '0 12 * * *'   # 轮次6: 北京 20:00 (合并5轮+推送)
   workflow_dispatch:
     inputs:
       round:
@@ -58,17 +58,17 @@ jobs:
           HOUR=$(TZ='Asia/Shanghai' date +%H)
           ROUND="${{ github.event.inputs.round }}"
           if [ -z "$ROUND" ] || [ "$ROUND" = "0" ]; then
-            if [ "$HOUR" -ge 2 ] && [ "$HOUR" -lt 3 ]; then
+            if [ "$HOUR" -ge 13 ] && [ "$HOUR" -lt 14 ]; then
               ROUND=1
-            elif [ "$HOUR" -ge 3 ] && [ "$HOUR" -lt 4 ]; then
+            elif [ "$HOUR" -ge 14 ] && [ "$HOUR" -lt 15 ]; then
               ROUND=2
-            elif [ "$HOUR" -ge 4 ] && [ "$HOUR" -lt 5 ]; then
+            elif [ "$HOUR" -ge 15 ] && [ "$HOUR" -lt 16 ]; then
               ROUND=3
-            elif [ "$HOUR" -ge 5 ] && [ "$HOUR" -lt 6 ]; then
+            elif [ "$HOUR" -ge 16 ] && [ "$HOUR" -lt 17 ]; then
               ROUND=4
-            elif [ "$HOUR" -ge 6 ] && [ "$HOUR" -lt 7 ]; then
+            elif [ "$HOUR" -ge 17 ] && [ "$HOUR" -lt 18 ]; then
               ROUND=5
-            elif [ "$HOUR" -ge 9 ]; then
+            elif [ "$HOUR" -ge 20 ]; then
               ROUND=6
             else
               ROUND=5
