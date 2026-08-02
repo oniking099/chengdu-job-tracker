@@ -342,6 +342,42 @@ def scrape_51job(playwright, keyword):
             page.mouse.wheel(0, random.randint(300, 800))
             time.sleep(0.5)
 
+        # 先获取__SEARCH_RESULT__的原始字段用于调试
+        debug_fields = page.evaluate("""() => {
+            try {
+                if (window.__SEARCH_RESULT__) {
+                    const result = window.__SEARCH_RESULT__;
+                    const jobs = result.engine_search_result || result.joblist || [];
+                    if (jobs.length > 0) {
+                        return Object.keys(jobs[0]);
+                    }
+                    return ['NO_JOBS'];
+                }
+                return ['NO___SEARCH_RESULT__'];
+            } catch(e) { return ['ERROR:' + e.message]; }
+        }""")
+        if debug_fields:
+            print(f"    [DEBUG] __SEARCH_RESULT__ fields: {debug_fields}")
+
+        # 获取第一个job的完整数据用于调试
+        debug_first_job = page.evaluate("""() => {
+            try {
+                if (window.__SEARCH_RESULT__) {
+                    const result = window.__SEARCH_RESULT__;
+                    const jobs = result.engine_search_result || result.joblist || [];
+                    if (jobs.length > 0) {
+                        const j = jobs[0];
+                        return JSON.stringify({jobid: j.jobid, job_id: j.job_id, job_href: j.job_href,
+                            job_name: j.job_name, company_name: j.company_name, company_href: j.company_href,
+                            coid: j.coid, id: j.id});
+                    }
+                }
+            } catch(e) {}
+            return null;
+        }""")
+        if debug_first_job:
+            print(f"    [DEBUG] first job: {debug_first_job[:300]}")
+
         raw_jobs = page.evaluate("""() => {
             try {
                 if (window.__SEARCH_RESULT__) {
