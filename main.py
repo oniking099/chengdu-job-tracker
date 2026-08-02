@@ -348,16 +348,16 @@ def scrape_51job(playwright, keyword):
                     const result = window.__SEARCH_RESULT__;
                     const jobs = result.engine_search_result || result.joblist || [];
                     return jobs.map(j => {
-                        // 优先使用jobid构造岗位详情页URL
+                        // 构造岗位详情页URL
                         let link = '';
                         let jobid = j.jobid || j.job_id || '';
                         if (jobid) {
                             link = 'https://jobs.51job.com/' + jobid + '.html';
                         } else {
-                            // 回退：使用job_href，但排除公司页面(/all/co开头)
+                            // 回退：使用job_href（保留所有URL，不排除公司页面）
                             let href = j.job_href || '';
                             if (href && href.startsWith('//')) href = 'https:' + href;
-                            if (href && href.startsWith('http') && !href.includes('/all/co')) {
+                            if (href && href.startsWith('http')) {
                                 link = href;
                             }
                         }
@@ -374,6 +374,13 @@ def scrape_51job(playwright, keyword):
             return null;
         }""")
 
+        # 调试：打印链接提取情况
+        if raw_jobs:
+            has_link = sum(1 for j in raw_jobs if j.get('link'))
+            print(f"    [DEBUG] __SEARCH_RESULT__: {len(raw_jobs)}个, {has_link}个有链接")
+            if raw_jobs and not raw_jobs[0].get('link'):
+                print(f"    [DEBUG] 第一条数据keys: {list(raw_jobs[0].keys())}")
+
         if not raw_jobs:
             raw_jobs = page.evaluate("""() => {
                 const jobs = [];
@@ -382,11 +389,10 @@ def scrape_51job(playwright, keyword):
                 let cards = [];
                 for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
                 if (!cards.length) {
-                    // 回退：直接找岗位详情页链接（非公司页面）
+                    // 回退：直接找51job链接
                     document.querySelectorAll('a[href*="jobs.51job.com"]').forEach(a => {
                         const href = a.href;
-                        // 排除公司页面 /all/co 开头的链接
-                        if (href && !href.includes('/all/co')) {
+                        if (href) {
                             const t = a.textContent.trim();
                             if (t && t.length > 2 && t.length < 50)
                                 jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:href,source:'51job'});
@@ -396,8 +402,8 @@ def scrape_51job(playwright, keyword):
                 }
                 cards.forEach(c => {
                     const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
-                    // 只选岗位详情页链接，排除公司页面
-                    const le = c.querySelector('a[href*="jobs.51job.com"]:not([href*="/all/co"]), a[href*="/job/"]');
+                    // 选51job链接
+                    const le = c.querySelector('a[href*="jobs.51job.com"], a[href*="/job/"]');
                     if (g('.jname') || g('.cname'))
                         jobs.push({title:g('.jname, .t1 a, [class*="jname"]'),company:g('.cname, [class*="cname"]'),
                             salary:g('.sal, [class*="sal"]'),location:g('.info .name, [class*="area"]')||'成都',
@@ -1247,9 +1253,6 @@ def _has_valid_link(job):
     for p in invalid_patterns:
         if p in url:
             return False
-    # 排除51job公司列表页（不是岗位详情页）
-    if 'jobs.51job.com/all/co' in url:
-        return False
     # 排除企业官网首页
     from urllib.parse import urlparse
     parsed = urlparse(url)
