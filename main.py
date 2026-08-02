@@ -348,9 +348,19 @@ def scrape_51job(playwright, keyword):
                     const result = window.__SEARCH_RESULT__;
                     const jobs = result.engine_search_result || result.joblist || [];
                     return jobs.map(j => {
-                        let link = j.job_href || '';
-                        if (link && link.startsWith('//')) link = 'https:' + link;
-                        if (link && !link.startsWith('http')) link = '';
+                        // 优先使用jobid构造岗位详情页URL
+                        let link = '';
+                        let jobid = j.jobid || j.job_id || '';
+                        if (jobid) {
+                            link = 'https://jobs.51job.com/' + jobid + '.html';
+                        } else {
+                            // 回退：使用job_href，但排除公司页面(/all/co开头)
+                            let href = j.job_href || '';
+                            if (href && href.startsWith('//')) href = 'https:' + href;
+                            if (href && href.startsWith('http') && !href.includes('/all/co')) {
+                                link = href;
+                            }
+                        }
                         return {
                             title: j.job_name || '', company: j.company_name || '',
                             salary: j.providesalary_text || j.salary || '',
@@ -367,20 +377,27 @@ def scrape_51job(playwright, keyword):
         if not raw_jobs:
             raw_jobs = page.evaluate("""() => {
                 const jobs = [];
+                // 51job岗位详情页链接格式: jobs.51job.com/数字.html
                 const sels = ['.j_joblist', '.el', '[class*="joblist"]', '[class*="job-item"]', '.t1'];
                 let cards = [];
                 for (const s of sels) { cards = document.querySelectorAll(s); if (cards.length) break; }
                 if (!cards.length) {
-                    document.querySelectorAll('a[href*="jobs.51job.com"], a[href*="/job/"]').forEach(a => {
-                        const t = a.textContent.trim();
-                        if (t && t.length > 2 && t.length < 50)
-                            jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:a.href,source:'51job'});
+                    // 回退：直接找岗位详情页链接（非公司页面）
+                    document.querySelectorAll('a[href*="jobs.51job.com"]').forEach(a => {
+                        const href = a.href;
+                        // 排除公司页面 /all/co 开头的链接
+                        if (href && !href.includes('/all/co')) {
+                            const t = a.textContent.trim();
+                            if (t && t.length > 2 && t.length < 50)
+                                jobs.push({title:t,company:'',salary:'',location:'成都',tags:'',link:href,source:'51job'});
+                        }
                     });
                     return jobs;
                 }
                 cards.forEach(c => {
                     const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
-                    const le = c.querySelector('a[href*="jobs.51job.com"], a[href*="/job/"], .jname a, a.t1');
+                    // 只选岗位详情页链接，排除公司页面
+                    const le = c.querySelector('a[href*="jobs.51job.com"]:not([href*="/all/co"]), a[href*="/job/"]');
                     if (g('.jname') || g('.cname'))
                         jobs.push({title:g('.jname, .t1 a, [class*="jname"]'),company:g('.cname, [class*="cname"]'),
                             salary:g('.sal, [class*="sal"]'),location:g('.info .name, [class*="area"]')||'成都',
@@ -801,12 +818,21 @@ def scrape_company_career(context, company):
 
         raw_jobs = page.evaluate("""(companyName) => {
             const jobs = [];
-            // 辅助函数：判断链接是否有效
-            const isValidLink = (href) => {
+            // 辅助函数：判断链接是否有效且指向岗位页面
+            const isValidJobLink = (href) => {
                 if (!href) return false;
                 if (href.startsWith('javascript:')) return false;
                 if (href === '#' || href.includes('void(0)')) return false;
                 if (!href.startsWith('http')) return false;
+                // 排除明显不是岗位页面的URL
+                const lowerHref = href.toLowerCase();
+                const excludePatterns = ['/product', '/solution', '/service', '/about',
+                    '/contact', '/legal', '/privacy', '/cookie', '/news', '/press',
+                    '/support', '/download', '/training', '/event', '/blog',
+                    '/topic/', '/industry/', '/technology/', '/digital-thread'];
+                for (const p of excludePatterns) {
+                    if (lowerHref.includes(p)) return false;
+                }
                 return true;
             };
             const sels = ['.job-item', '.position-item', '.job-card', '[class*="job-list"] li',
@@ -818,10 +844,11 @@ def scrape_company_career(context, company):
                 document.querySelectorAll('a').forEach(a => {
                     const text = a.textContent.trim();
                     const href = a.href;
-                    if (isValidLink(href) && text.length > 2 && text.length < 80 &&
+                    if (isValidJobLink(href) && text.length > 2 && text.length < 80 &&
                         (text.includes('工程师') || text.includes('专员') || text.includes('经理') ||
                          text.includes('分析师') || text.includes('研究员') || text.includes('设计') ||
-                         text.includes('算法') || text.includes('开发'))) {
+                         text.includes('算法') || text.includes('开发') || text.includes('实习') ||
+                         text.includes('主管') || text.includes('总监') || text.includes('顾问'))) {
                         jobs.push({title:text, company:companyName, salary:'', location:'成都',
                             tags:'', link:href, source:'企业官网'});
                     }
@@ -830,11 +857,30 @@ def scrape_company_career(context, company):
             }
             cards.forEach(c => {
                 const g = s => { const e = c.querySelector(s); return e ? e.textContent.trim() : ''; };
-                // 优先选择包含job/position/recruit关键词的链接
-                const le = c.querySelector('a[href*="job"], a[href*="position"], a[href*="recruit"], a[href*="detail"], a[href*="view"]');
-                const link = le ? le.href : '';
+                // 优先选择包含job/position/recruit关键词的链接，且验证为有效岗位链接
+                const candidates = c.querySelectorAll('a[href]');
+                let link = '';
+                for (const a of candidates) {
+                    const href = a.href.toLowerCase();
+                    if (isValidJobLink(a.href) &&
+                        (href.includes('job') || href.includes('position') ||
+                         href.includes('recruit') || href.includes('detail') ||
+                         href.includes('view') || href.includes('career'))) {
+                        link = a.href;
+                        break;
+                    }
+                }
+                // 如果没找到job相关的链接，取第一个有效链接
+                if (!link) {
+                    for (const a of candidates) {
+                        if (isValidJobLink(a.href)) {
+                            link = a.href;
+                            break;
+                        }
+                    }
+                }
                 const title = g('.job-name, .job-title, .position-name, [class*="title"], h3, h4');
-                if (title && isValidLink(link))
+                if (title && isValidJobLink(link))
                     jobs.push({title:title, company:companyName, salary:g('.salary, [class*="salary"]'),
                         location:g('.area, [class*="city"]')||'成都',
                         tags:c.textContent.trim().substring(0,500), link:link,
@@ -1193,6 +1239,14 @@ def _has_valid_link(job):
     for p in invalid_patterns:
         if p in url:
             return False
+    # 排除51job公司列表页（不是岗位详情页）
+    if 'jobs.51job.com/all/co' in url:
+        return False
+    # 排除企业官网首页
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.path in ('', '/', '/index.html', '/index.htm', '/zh-cn/', '/cn/'):
+        return False
     return True
 
 
@@ -1849,20 +1903,20 @@ def get_search_round():
     round_env = os.environ.get('SEARCH_ROUND', '0')
     if round_env and round_env != '0':
         return int(round_env)
-    # 根据北京时间自动判断
+    # 根据北京时间自动判断（13-17点搜索，20点推送）
     tz = timezone(timedelta(hours=8))
     hour = datetime.now(tz).hour
-    if 2 <= hour < 3:
+    if 13 <= hour < 14:
         return 1
-    elif 3 <= hour < 4:
+    elif 14 <= hour < 15:
         return 2
-    elif 4 <= hour < 5:
+    elif 15 <= hour < 16:
         return 3
-    elif 5 <= hour < 6:
+    elif 16 <= hour < 17:
         return 4
-    elif 6 <= hour < 7:
+    elif 17 <= hour < 18:
         return 5
-    elif hour >= 9:
+    elif hour >= 20:
         return 6  # 合并推送轮
     else:
         return 5  # 默认最后一轮搜索
