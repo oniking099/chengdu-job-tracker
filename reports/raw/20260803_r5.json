@@ -459,15 +459,6 @@
     "source": "51job"
   },
   {
-    "title": "陕西省西安市沣东新城科源三路137号康鸿橙方科技园1号楼d单元一层",
-    "company": "",
-    "salary": "",
-    "location": "成都",
-    "tags": "",
-    "link": "https://mq.51job.com/i1598/co2295136/xinzi/",
-    "source": "51job"
-  },
-  {
     "title": "宝德(上海)科技有限公司",
     "company": "",
     "salary": "",
@@ -477,30 +468,21 @@
     "source": "51job"
   },
   {
-    "title": "百特中国投资有限公司招聘",
-    "company": "",
-    "salary": "",
-    "location": "成都",
-    "tags": "",
-    "link": "https://mmq.51job.com/i1610/co9410764/zhaopin/",
-    "source": "51job"
-  },
-  {
-    "title": "苏州梯梯电子科技有限公司",
-    "company": "",
-    "salary": "",
-    "location": "成都",
-    "tags": "",
-    "link": "https://mq.51job.com/i1629/co2005152/zhaopin",
-    "source": "51job"
-  },
-  {
     "title": "蒂森克虏伯弹簧稳定杆(平湖)有限公司",
     "company": "",
     "salary": "",
     "location": "成都",
     "tags": "",
     "link": "https://mq.51job.com/i2092/co7454128/",
+    "source": "51job"
+  },
+  {
+    "title": "陕西省西安市沣东新城科源三路137号康鸿橙方科技园1号楼d单元一层",
+    "company": "",
+    "salary": "",
+    "location": "成都",
+    "tags": "",
+    "link": "https://mq.51job.com/i1598/co2295136/xinzi/",
     "source": "51job"
   },
   {
@@ -532,5 +514,25 @@
     "link": "http://www.ceedi.com.cn/",
     "source": "企业官网",
     "company_type": "国企"
+  },
+  {
+    "title": "Deloitte 客户案例",
+    "company": "Dell成都",
+    "salary": "",
+    "location": "成都",
+    "tags": "{\"@context\":\"https://schema.org\",\"@type\":\"VideoObject\",\"description\":\":06 着陆页循环视频\",\"name\":\"Deloitte AI PC :06 视频\",\"thumbnailUrl\":\"//i.dell.com/is/image/DellContent/content/dam/ss2/non-product-images/video-thumbnails/2025/deloitte-6s-thumb.jpg?fmt=jpg&amp;wid=1920&amp;hei=1080\",\"duration\":\"6\",\"embedUrl\":\"https://players.brightcove.net/694940018001/default_default/index.html?videoId=6388530866112\",\"uploadDate\":\"2026-03-30T16:32:15.357Z\"} Deloitte 客户案例设备端 AI 赋能现代工作方式了解 Deloitte 如何利用戴尔安全的设备端解决方案推动 A",
+    "link": "https://www.dell.com/zh-cn/lp/dt/customer-stories-deloitte",
+    "source": "企业官网",
+    "company_type": "外资"
+  },
+  {
+    "title": "教育优惠",
+    "company": "Dell成都",
+    "salary": "",
+    "location": "成都",
+    "tags": "教育优惠借助 AI 工具提升学习效能搭载英特尔® 酷睿™ Ultra 处理器的全新戴尔 AI PC，助力潜能释放，成就非凡表现。获取教育优惠",
+    "link": "https://www.dell.com/zh-cn/lp/students",
+    "source": "企业官网",
+    "company_type": "外资"
   }
 ]
